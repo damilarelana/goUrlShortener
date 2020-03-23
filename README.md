@@ -4,7 +4,7 @@ A simple Golang implementation of a Url Shortener that:
 
 * examines path of incoming request
 * determines if re-direction is required
-* uses flags (`-yaml` and `-json`) to sources the required content from files instead of inline strings
+* uses flags (`-yaml`, `-json`, `-sql`) to sources the required content from files instead of inline strings
 
 ***
 
