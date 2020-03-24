@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"reflect"
 
 	"github.com/damilarelana/goUrlShortener"
@@ -21,20 +22,21 @@ func main() {
 	}
 	mapHandler := goUrlShortener.MapHandler(pathsToUrls, mux)
 
-	// Build the YAMLHandler using the mapHandler as the
-	// fallback
+	// Build the YAMLHandler using the mapHandler as the fallback
 	yaml := `
-	- path: /urlshort
-	  url: github.com/damilarelana/goUrlShortener
-	- path: /urlshort-final
-	  url: github.com/damilarelana/goUrlShortener/tree/solution
-	`
+- path: /urlshort
+  url: https://github.com/damilarelana/goUrlShortener
+- path: /urlshort-final
+  url: https://github.com/damilarelana/goUrlShortener/tree/master/main
+`
+
 	yamlHandler, err := goUrlShortener.YAMLHandler([]byte(yaml), mapHandler)
 	if err != nil {
+		errMsgHandler(fmt.Sprintf("Failed to parse the YAML: %s\n", err))
 		panic(err)
 	}
 	fmt.Println("Starting the server on :8080")
-	log.Fatal(errors.Wrap(http.ListenAndServe(":8080", mapHandler), "Failed to start WebServer"))
+	log.Fatal(errors.Wrap(http.ListenAndServe(":8080", yamlHandler), "Failed to start WebServer"))
 }
 
 func defaultMux() *http.ServeMux {
@@ -60,4 +62,10 @@ func custom404PageHandler(w http.ResponseWriter, r *http.Request, status int) {
 		data404Page := "This page does not exist ... 404!" // custom error message content
 		io.WriteString(w, data404Page)
 	}
+}
+
+// defines the error message handler
+func errMsgHandler(msg string) {
+	fmt.Println(msg)
+	os.Exit(1)
 }
