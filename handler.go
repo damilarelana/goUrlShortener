@@ -1,4 +1,4 @@
-package urlshort
+package goUrlShortener
 
 import (
 	"net/http"
