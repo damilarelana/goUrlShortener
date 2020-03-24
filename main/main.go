@@ -23,18 +23,18 @@ func main() {
 
 	// Build the YAMLHandler using the mapHandler as the
 	// fallback
-	yaml := `
-- path: /urlshort
-  url: github.com/damilarelana/goUrlShortener
-- path: /urlshort-final
-  url: github.com/damilarelana/goUrlShortener/tree/solution
-`
-	yamlHandler, err := goUrlShortener.YAMLHandler([]byte(yaml), mapHandler)
-	if err != nil {
-		panic(err)
-	}
+	// 	yaml := `
+	// - path: /urlshort
+	//   url: github.com/damilarelana/goUrlShortener
+	// - path: /urlshort-final
+	//   url: github.com/damilarelana/goUrlShortener/tree/solution
+	// `
+	// 	yamlHandler, err := goUrlShortener.YAMLHandler([]byte(yaml), mapHandler)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
 	fmt.Println("Starting the server on :8080")
-	log.Fatal(errors.Wrap(http.ListenAndServe(":8080", yamlHandler), "Failed to start WebServer"))
+	log.Fatal(errors.Wrap(http.ListenAndServe(":8080", mapHandler), "Failed to start WebServer"))
 }
 
 func defaultMux() *http.ServeMux {
