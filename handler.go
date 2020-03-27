@@ -32,7 +32,9 @@ func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.Handl
 func YAMLHandler(yamlBytes []byte, fallback http.Handler) (http.HandlerFunc, error) {
 	// parse the YAML file
 	pathUrls, err := parseYAML(yamlBytes)
-	checkErr(err)
+	if err != nil {
+		return nil, err
+	}
 
 	// convert parsedYAML into a map
 	pathsToUrls := buildPathsMap(pathUrls)
@@ -47,13 +49,6 @@ func YAMLHandler(yamlBytes []byte, fallback http.Handler) (http.HandlerFunc, err
 type pathURL struct {
 	Path string `yaml:"path"`
 	URL  string `yaml:"url"`
-}
-
-// error checker
-func checkErr(err error) (interface{}, error) {
-	if err != nil {
-		return nil, err
-	}
 }
 
 // buildPathsMap converts parsedYAML into a map i.e.
@@ -73,6 +68,8 @@ func buildPathsMap(pTUrl []pathURL) map[string]string {
 //  * yaml.Unmarshal reads `all` the content into memory at once
 func parseYAML(yB []byte) (pathUrls []pathURL, err error) {
 	err = yaml.Unmarshal(yB, &pathUrls)
-	checkErr(err)
+	if err != nil {
+		return nil, err
+	}
 	return pathUrls, nil
 }

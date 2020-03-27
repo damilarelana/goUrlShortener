@@ -1,10 +1,10 @@
 package main
 
 import (
-	"encoding/csv"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -26,18 +26,37 @@ var yamlFilename *string = flag.String("yaml", "pathsData.yaml", "a yaml file co
 // define reader to
 //   * read in the file data
 // 	 * return a slice of bytes
-func readRecords(f *os.File) [][]byte {
-	r := csv.NewReader(f)
-	records, err := r.ReadAll()
+
+// fileOpener()
+//   * gets the file from the system
+//   * opens it and gets it ready to be used
+//	 * returns a pointer to the now open/ready file
+func fileOpener(f *string) *os.File {
+	// Prepare the file content to be read by opening it first, using os.Open()
+	openedFile, err := os.Open(*f)
 	if err != nil {
-		errMsgHandler("Failed to read the provided file")
+		errMsgHandler(fmt.Sprintf("Failed to open file: %s\n", *f))
+		panic(err)
 	}
-	p := [][]byte(records)
-	return p
+	return openedFile
 }
 
+// fileReader()
+//  * takes the pointer to the opened file
+//  * use ioutil to read the file and return data as []bytes
+//  * returns the function call as []bytes
+func fileReader(f *os.File) []byte {
+	data, err := ioutil.ReadFile(*f)
+	if err != nil {
+		errMsgHandler(fmt.Sprintf("Failed to read file: %s\n", *f))
+	}
+	return data
+}
+
+//
 // yaml parser is defined within:
 //    * `goURlShortner` as parseYAML()
+//
 
 // urlShortenerHomepage handler
 func urlShortenerHomePage(w http.ResponseWriter, r *http.Request) {
