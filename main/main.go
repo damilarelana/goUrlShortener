@@ -23,29 +23,12 @@ func errMsgHandler(msg string) {
 // define flags
 var yamlFilename *string = flag.String("yaml", "pathsData.yaml", "a yaml file containing path and mapped URL, in a 'question, answer' format per record line")
 
-// define reader to
-//   * read in the file data
-// 	 * return a slice of bytes
-
-// fileOpener()
-//   * gets the file from the system
-//   * opens it and gets it ready to be used
-//	 * returns a pointer to the now open/ready file
-func fileOpener(f *string) *os.File {
-	// Prepare the file content to be read by opening it first, using os.Open()
-	openedFile, err := os.Open(*f)
-	if err != nil {
-		errMsgHandler(fmt.Sprintf("Failed to open file: %s\n", *f))
-		panic(err)
-	}
-	return openedFile
-}
-
 // fileReader()
 //  * takes the pointer to the opened file
+//	* dereferences the pointer to get the value i.e. *f
 //  * use ioutil to read the file and return data as []bytes
 //  * returns the function call as []bytes
-func fileReader(f *os.File) []byte {
+func fileReader(f *string) []byte {
 	data, err := ioutil.ReadFile(*f)
 	if err != nil {
 		errMsgHandler(fmt.Sprintf("Failed to read file: %s\n", *f))
@@ -106,14 +89,15 @@ func main() {
 	mapHandler := goUrlShortener.MapHandler(pathsToUrls, mux)
 
 	// Build the YAMLHandler using the mapHandler as the fallback
-	yaml := `
-- path: /urlshort
-  url: https://github.com/damilarelana/goUrlShortener
-- path: /urlshort-final
-  url: https://github.com/damilarelana/goUrlShortener/tree/master/main
-`
+	// 	yaml := `
+	// - path: /urlshort
+	//   url: https://github.com/damilarelana/goUrlShortener
+	// - path: /urlshort-final
+	//   url: https://github.com/damilarelana/goUrlShortener/tree/master/main
+	// `
 
-	yamlHandler, err := goUrlShortener.YAMLHandler([]byte(yaml), mapHandler)
+	//	yamlHandler, err := goUrlShortener.YAMLHandler([]byte(yaml), mapHandler)
+	yamlHandler, err := goUrlShortener.YAMLHandler(fileReader(yamlFilename), mapHandler)
 	if err != nil {
 		errMsgHandler(fmt.Sprintf("Failed to parse the YAML: %s\n", err))
 		panic(err)
