@@ -35,6 +35,6 @@ To test the `MapHandler`, point browser to `127.0.0.1:8080/urlshort-godoc`. The 
 
 ### To Do
 
-+ [ ] YAML implementation - accepts a YAML file as a flag, loads the YAML content from file instead of from a string
++ [x] YAML implementation - accepts a YAML file as a flag, loads the YAML content from file instead of from a string
 + [ ] JSON implementation - accepts a JSON file as a flag, loads the JSON content from file instead of from a string
 + [ ] SQL implementation  - reads the required content from a database instead of from a file
