@@ -3,7 +3,7 @@ package goUrlShortener
 import (
 	"net/http"
 
-	yaml "gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // MapHandler will return an http.HandlerFunc (which also implements http.Handler)
@@ -32,9 +32,7 @@ func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.Handl
 func YAMLHandler(yamlBytes []byte, fallback http.Handler) (http.HandlerFunc, error) {
 	// parse the YAML file
 	pathUrls, err := parseYAML(yamlBytes)
-	if err != nil {
-		return nil, err
-	}
+	checkErr(err)
 
 	// convert parsedYAML into a map
 	pathsToUrls := buildPathsMap(pathUrls)
@@ -51,6 +49,13 @@ type pathURL struct {
 	URL  string `yaml:"url"`
 }
 
+// error checker
+func checkErr(err error) (interface{}, error) {
+	if err != nil {
+		return nil, err
+	}
+}
+
 // buildPathsMap converts parsedYAML into a map i.e.
 // * make empty map
 // * fill up the empty map one at a time
@@ -64,11 +69,10 @@ func buildPathsMap(pTUrl []pathURL) map[string]string {
 	return pTUrls
 }
 
-// parseYAML uses the `yaml` package to parse the YAML data
+// parseYAML uses the `yaml` package to parse the YAML bytes into the Type struct pathURL
+//  * yaml.Unmarshal reads `all` the content into memory at once
 func parseYAML(yB []byte) (pathUrls []pathURL, err error) {
 	err = yaml.Unmarshal(yB, &pathUrls)
-	if err != nil {
-		return nil, err
-	}
+	checkErr(err)
 	return pathUrls, nil
 }
