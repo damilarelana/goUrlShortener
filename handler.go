@@ -1,6 +1,7 @@
 package goUrlShortener
 
 import (
+	"encoding/json"
 	"net/http"
 
 	yaml "gopkg.in/yaml.v3"
@@ -45,10 +46,32 @@ func YAMLHandler(yamlBytes []byte, fallback http.Handler) (http.HandlerFunc, err
 	return MapHandler(pathsToUrls, fallback), nil
 }
 
-// pathURL declares the type structure we'll parse the YAML into
+// JSONHandler will parse the provided JSON and then return an http.HandlerFunc (which also implements http.Handler)
+//  * parse the JSON file
+//  * convert parsedJSON into a map
+//  * then re-use the MapHandler
+
+// JSONHandler parses the JSON file [in byte form]
+func JSONHandler(jsonBytes []byte, fallback http.Handler) (http.HandlerFunc, error) {
+	// parse the JSON file
+	pathUrls, err := parseJSON(jsonBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// convert parsedJSON into a map
+	pathsToUrls := buildPathsMap(pathUrls)
+
+	// re-use the MapHandler
+	// * now return the newly padded pathsToUrls
+	// * while returning it in a format that makes it look like you were calling MapHandler in the first place
+	return MapHandler(pathsToUrls, fallback), nil
+}
+
+// pathURL declares the type structure we'll parse the YAML or JSON into
 type pathURL struct {
-	Path string `yaml:"path"`
-	URL  string `yaml:"url"`
+	Path string `format:"path"`
+	URL  string `format:"url"`
 }
 
 // buildPathsMap converts parsedYAML into a map i.e.
@@ -68,6 +91,16 @@ func buildPathsMap(pTUrl []pathURL) map[string]string {
 //  * yaml.Unmarshal reads `all` the content into memory at once
 func parseYAML(yB []byte) (pathUrls []pathURL, err error) {
 	err = yaml.Unmarshal(yB, &pathUrls)
+	if err != nil {
+		return nil, err
+	}
+	return pathUrls, nil
+}
+
+// parseJSON uses the `json` package to parse the JSON bytes into the Type struct pathURL
+//  * json.Unmarshal reads `all` the content into memory at once
+func parseJSON(jB []byte) (pathUrls []pathURL, err error) {
+	err = json.Unmarshal(jB, &pathUrls)
 	if err != nil {
 		return nil, err
 	}

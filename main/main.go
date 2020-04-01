@@ -21,7 +21,8 @@ func errMsgHandler(msg string) {
 }
 
 // define flags
-var yamlFilename *string = flag.String("yaml", "pathsData.yaml", "a yaml file containing path and mapped URL, in a 'question, answer' format per record line")
+var yamlFilename *string = flag.String("yaml", "", "a yaml file containing path and mapped URL, in a 'question, answer' format per record line")
+var jsonFilename *string = flag.String("json", "", "a json file containing path and mapped URL, in a 'question, answer' format per record line")
 
 // fileReader()
 //  * takes the pointer to the opened file
@@ -34,6 +35,66 @@ func fileReader(f *string) []byte {
 		errMsgHandler(fmt.Sprintf("Failed to read file: %s\n", *f))
 	}
 	return data
+}
+
+// multiFlagTester()
+//  * checks to see if the user is trying to use multiple file formats (yaml, json, sql) at the same time
+//  * check to set number of flags `n` that have been set
+//	* throws an error message, if `n` > 1
+//  * returns a true boolean, if `n` > 1
+func multiFlagTester() bool {
+	numFlag := flag.NFlag()
+	if numFlag > 1 {
+		return true
+	}
+	return false
+}
+
+// yamlFlagHandler()
+func yamlFlagHandler(yamlFilename *string, mapHandler http.HandlerFunc) http.HandlerFunc {
+	yamlHandler, err := goUrlShortener.YAMLHandler(fileReader(yamlFilename), mapHandler)
+	if err != nil {
+		errMsgHandler(fmt.Sprintf("Failed to parse the YAML: %s\n", err))
+		panic(err)
+	}
+	return yamlHandler
+}
+
+// jsonFlagHandler()
+func jsonFlagHandler(jsonFilename *string, mapHandler http.HandlerFunc) http.HandlerFunc {
+	jsonHandler, err := goUrlShortener.JSONHandler(fileReader(jsonFilename), mapHandler)
+	if err != nil {
+		errMsgHandler(fmt.Sprintf("Failed to parse the JSON: %s\n", err))
+		panic(err)
+	}
+	return jsonHandler
+}
+
+// formatHandler()
+// * validates to avoid multiple flags being used simultaneously
+// * checks for which flag is being used
+// * leverages the appropriate flag handler
+// * defaults to using yaml flag when no flag is chosen
+func selectFlagHandler(mapHandler http.HandlerFunc) http.HandlerFunc {
+	if multiFlagTester() { // check if multiple flags are being used i.e. multiFlagTester returns a true or false boolean
+		errMsgHandler(fmt.Sprintf("Cannot use multiple flags at once. Please choose only yaml or json or sql \n"))
+	}
+
+	if flag.NFlag() != 0 && !reflect.DeepEqual(jsonFilename, "") { // if json filename is used THEN yaml flag would be empty string
+		jsonHandler := jsonFlagHandler(jsonFilename, mapHandler)
+		return jsonHandler
+	}
+
+	if flag.NFlag() != 0 && !reflect.DeepEqual(yamlFilename, "") { // if yaml filename is used THEN json flag would be empty string
+		yamlHandler := yamlFlagHandler(yamlFilename, mapHandler)
+		return yamlHandler
+	}
+
+	// defaults to yamlHandler when no flags are selected i.e. 'flag.NFlag() returns 0'
+	*yamlFilename = "pathsData.yaml"
+	fmt.Printf("No file flags was set (using either '-yaml' or '-json'). Defaulting to file: %s\n", *yamlFilename)
+	yamlHandler := yamlFlagHandler(yamlFilename, mapHandler)
+	return yamlHandler
 }
 
 //
@@ -74,6 +135,7 @@ func defaultMux() *http.ServeMux {
 //   * uses defaultMux()
 //   * uses mapHandler from `goURlShortner` package
 //   * uses yamlHandler from `goURlShortner` package
+//   * uses jsonHandler from `goURlShortner` package
 func main() {
 	// initialize all flags
 	flag.Parse()
@@ -87,21 +149,6 @@ func main() {
 		"/yaml-godoc":     "https://godoc.org/gopkg.in/yaml.v2",
 	}
 	mapHandler := goUrlShortener.MapHandler(pathsToUrls, mux)
-
-	// Build the YAMLHandler using the mapHandler as the fallback
-	// 	yaml := `
-	// - path: /urlshort
-	//   url: https://github.com/damilarelana/goUrlShortener
-	// - path: /urlshort-final
-	//   url: https://github.com/damilarelana/goUrlShortener/tree/master/main
-	// `
-
-	//	yamlHandler, err := goUrlShortener.YAMLHandler([]byte(yaml), mapHandler)
-	yamlHandler, err := goUrlShortener.YAMLHandler(fileReader(yamlFilename), mapHandler)
-	if err != nil {
-		errMsgHandler(fmt.Sprintf("Failed to parse the YAML: %s\n", err))
-		panic(err)
-	}
 	fmt.Println("Starting the server on :8080")
-	log.Fatal(errors.Wrap(http.ListenAndServe(":8080", yamlHandler), "Failed to start WebServer"))
+	log.Fatal(errors.Wrap(http.ListenAndServe(":8080", selectFlagHandler(mapHandler)), "Failed to start WebServer"))
 }
