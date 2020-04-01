@@ -28,7 +28,10 @@ To run the code, we need to start the local webserver by running:
     $ ./main/main
 ```
 
-To test the `MapHandler`, point browser to `127.0.0.1:8080/urlshort-godoc`. The browser should redirect you to `https://godoc.org/github.com/gophercises/urlshort` . In order to test the `YAMLHandler`, point browser to `127.0.0.1:8080/urlshort`. The browser should redirect you to `https://github.com/damilarelana/goUrlShortener`.
+To test the `MapHandler`, point browser to `127.0.0.1:8080/urlshort-godoc`. The browser should redirect you to `https://godoc.org/github.com/gophercises/urlshort` . In order to test the `YAMLHandler`, point browser to `127.0.0.1:8080/urlshort`. The browser should redirect you to `https://github.com/damilarelana/goUrlShortener`. In order to test the `JSONHandler`, you need to re-run the application so that it uses the provided JSON file i.e. 
+```bash
+    $ ./main/main -json="pathsData.json"
+```
 
 
 ***
