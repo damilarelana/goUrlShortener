@@ -87,6 +87,7 @@ func selectFlagHandler(mapHandler http.HandlerFunc) http.HandlerFunc {
 
 	if flag.NFlag() != 0 && !reflect.DeepEqual(yamlFilename, "") { // if yaml filename is used THEN json flag would be empty string
 		yamlHandler := yamlFlagHandler(yamlFilename, mapHandler)
+		fmt.Printf("Now using the JSON flag with the file: %s\n", *jsonFilename)
 		return yamlHandler
 	}
 
