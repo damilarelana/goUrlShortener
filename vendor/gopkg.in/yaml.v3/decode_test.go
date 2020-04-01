@@ -1,7 +1,24 @@
+//
+// Copyright (c) 2011-2019 Canonical Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package yaml_test
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"reflect"
@@ -9,7 +26,7 @@ import (
 	"time"
 
 	. "gopkg.in/check.v1"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var unmarshalIntTest = 123
@@ -93,22 +110,42 @@ var unmarshalTests = []struct {
 	//{"sexa: 190:20:30.15", map[string]interface{}{"sexa": 0}}, // Unsupported
 	//{"notanum: .NaN", map[string]interface{}{"notanum": math.NaN()}}, // Equality of NaN fails.
 
-	// Bools from spec
+	// Bools are per 1.2 spec.
 	{
-		"canonical: y",
+		"canonical: true",
 		map[string]interface{}{"canonical": true},
 	}, {
-		"answer: NO",
-		map[string]interface{}{"answer": false},
+		"canonical: false",
+		map[string]interface{}{"canonical": false},
 	}, {
-		"logical: True",
-		map[string]interface{}{"logical": true},
+		"bool: True",
+		map[string]interface{}{"bool": true},
 	}, {
-		"option: on",
-		map[string]interface{}{"option": true},
+		"bool: False",
+		map[string]interface{}{"bool": false},
 	}, {
+		"bool: TRUE",
+		map[string]interface{}{"bool": true},
+	}, {
+		"bool: FALSE",
+		map[string]interface{}{"bool": false},
+	},
+	// For backwards compatibility with 1.1, decoding old strings into typed values still works.
+	{
 		"option: on",
 		map[string]bool{"option": true},
+	}, {
+		"option: y",
+		map[string]bool{"option": true},
+	}, {
+		"option: Off",
+		map[string]bool{"option": false},
+	}, {
+		"option: No",
+		map[string]bool{"option": false},
+	}, {
+		"option: other",
+		map[string]bool{},
 	},
 	// Ints from spec
 	{
@@ -120,6 +157,15 @@ var unmarshalTests = []struct {
 	}, {
 		"octal: 02472256",
 		map[string]interface{}{"octal": 685230},
+	}, {
+		"octal: -02472256",
+		map[string]interface{}{"octal": -685230},
+	}, {
+		"octal: 0o2472256",
+		map[string]interface{}{"octal": 685230},
+	}, {
+		"octal: -0o2472256",
+		map[string]interface{}{"octal": -685230},
 	}, {
 		"hexa: 0x_0A_74_AE",
 		map[string]interface{}{"hexa": 685230},
@@ -207,7 +253,12 @@ var unmarshalTests = []struct {
 	// Map inside interface with no type hints.
 	{
 		"a: {b: c}",
-		map[interface{}]interface{}{"a": map[interface{}]interface{}{"b": "c"}},
+		map[interface{}]interface{}{"a": map[string]interface{}{"b": "c"}},
+	},
+	// Non-string map inside interface with no type hints.
+	{
+		"a: {b: c, 1: d}",
+		map[interface{}]interface{}{"a": map[interface{}]interface{}{"b": "c", 1: "d"}},
 	},
 
 	// Structs and type conversions.
@@ -220,6 +271,9 @@ var unmarshalTests = []struct {
 	}, {
 		"a: {b: c}",
 		&struct{ A *struct{ B string } }{&struct{ B string }{"c"}},
+	}, {
+		"a: 'null'",
+		&struct{ A *unmarshalerType }{&unmarshalerType{"null"}},
 	}, {
 		"a: {b: c}",
 		&struct{ A map[string]string }{map[string]string{"b": "c"}},
@@ -256,7 +310,8 @@ var unmarshalTests = []struct {
 			B int "a"
 		}{1},
 	}, {
-		"a: y",
+		// Some limited backwards compatibility with the 1.1 spec.
+		"a: YES",
 		&struct{ A bool }{true},
 	},
 
@@ -450,7 +505,7 @@ var unmarshalTests = []struct {
 		map[string]*string{"foo": nil},
 	}, {
 		"foo: null",
-		map[string]string{"foo": ""},
+		map[string]string{},
 	}, {
 		"foo: null",
 		map[string]interface{}{"foo": nil},
@@ -462,7 +517,7 @@ var unmarshalTests = []struct {
 		map[string]*string{"foo": nil},
 	}, {
 		"foo: ~",
-		map[string]string{"foo": ""},
+		map[string]string{},
 	}, {
 		"foo: ~",
 		map[string]interface{}{"foo": nil},
@@ -501,6 +556,27 @@ var unmarshalTests = []struct {
 		}{1, inlineB{2, inlineC{3}}},
 	},
 
+	// Struct inlining as a pointer.
+	{
+		"a: 1\nb: 2\nc: 3\n",
+		&struct {
+			A int
+			C *inlineB `yaml:",inline"`
+		}{1, &inlineB{2, inlineC{3}}},
+	}, {
+		"a: 1\n",
+		&struct {
+			A int
+			C *inlineB `yaml:",inline"`
+		}{1, nil},
+	}, {
+		"a: 1\nc: 3\nd: 4\n",
+		&struct {
+			A int
+			C *inlineD `yaml:",inline"`
+		}{1, &inlineD{&inlineC{3}, 4}},
+	},
+
 	// Map inlining
 	{
 		"a: 1\nb: 2\nc: 3\n",
@@ -527,7 +603,7 @@ var unmarshalTests = []struct {
 	// issue #295 (allow scalars with colons in flow mappings and sequences)
 	{
 		"a: {b: https://github.com/go-yaml/yaml}",
-		map[string]interface{}{"a": map[interface{}]interface{}{
+		map[string]interface{}{"a": map[string]interface{}{
 			"b": "https://github.com/go-yaml/yaml",
 		}},
 	},
@@ -566,16 +642,10 @@ var unmarshalTests = []struct {
 		map[string]string{"a": strings.Repeat("\x00", 52)},
 	},
 
-	// Ordered maps.
-	{
-		"{b: 2, a: 1, d: 4, c: 3, sub: {e: 5}}",
-		&yaml.MapSlice{{"b", 2}, {"a", 1}, {"d", 4}, {"c", 3}, {"sub", yaml.MapSlice{{"e", 5}}}},
-	},
-
 	// Issue #39.
 	{
 		"a:\n b:\n  c: d\n",
-		map[string]struct{ B interface{} }{"a": {map[interface{}]interface{}{"c": "d"}}},
+		map[string]struct{ B interface{} }{"a": {map[string]interface{}{"c": "d"}}},
 	},
 
 	// Custom map type.
@@ -655,12 +725,12 @@ var unmarshalTests = []struct {
 	{
 		// explicit timestamp tag into interface.
 		"a: !!timestamp \"2015-01-01\"",
-		map[string]interface{}{"a": "2015-01-01"},
+		map[string]interface{}{"a": time.Date(2015, 1, 1, 0, 0, 0, 0, time.UTC)},
 	},
 	{
 		// implicit timestamp tag into interface.
 		"a: 2015-01-01",
-		map[string]interface{}{"a": "2015-01-01"},
+		map[string]interface{}{"a": time.Date(2015, 1, 1, 0, 0, 0, 0, time.UTC)},
 	},
 
 	// Encode empty lists as zero-length slices.
@@ -702,11 +772,11 @@ var unmarshalTests = []struct {
 	// yaml-test-suite 3GZX: Spec Example 7.1. Alias Nodes
 	{
 		"First occurrence: &anchor Foo\nSecond occurrence: *anchor\nOverride anchor: &anchor Bar\nReuse anchor: *anchor\n",
-		map[interface{}]interface{}{
-			"Reuse anchor":      "Bar",
+		map[string]interface{}{
 			"First occurrence":  "Foo",
 			"Second occurrence": "Foo",
 			"Override anchor":   "Bar",
+			"Reuse anchor":      "Bar",
 		},
 	},
 	// Single document with garbage following it.
@@ -714,29 +784,28 @@ var unmarshalTests = []struct {
 		"---\nhello\n...\n}not yaml",
 		"hello",
 	},
+
+	// Comment scan exhausting the input buffer (issue #469).
 	{
-		"a: 5\n",
-		&struct{ A jsonNumberT }{"5"},
+		"true\n#" + strings.Repeat(" ", 512*3),
+		"true",
+	}, {
+		"true #" + strings.Repeat(" ", 512*3),
+		"true",
 	},
+
+	// CRLF
 	{
-		"a: 5.5\n",
-		&struct{ A jsonNumberT }{"5.5"},
+		"a: b\r\nc:\r\n- d\r\n- e\r\n",
+		map[string]interface{}{
+			"a": "b",
+			"c": []interface{}{"d", "e"},
+		},
 	},
-	{
-		`
-a:
-  b
-b:
-  ? a
-  : a`,
-		&M{"a": "b",
-			"b": M{
-				"a": "a",
-			}},
-	},
+
 }
 
-type M map[interface{}]interface{}
+type M map[string]interface{}
 
 type inlineB struct {
 	B       int
@@ -745,6 +814,11 @@ type inlineB struct {
 
 type inlineC struct {
 	C int
+}
+
+type inlineD struct {
+	C *inlineC `yaml:",inline"`
+	D int
 }
 
 func (s *S) TestUnmarshal(c *C) {
@@ -760,16 +834,15 @@ func (s *S) TestUnmarshal(c *C) {
 	}
 }
 
-// TODO(v3): This test should also work when unmarshaling onto an interface{}.
 func (s *S) TestUnmarshalFullTimestamp(c *C) {
 	// Full timestamp in same format as encoded. This is confirmed to be
 	// properly decoded by Python as a timestamp as well.
 	var str = "2015-02-24T18:19:39.123456789-03:00"
-	var t time.Time
+	var t interface{}
 	err := yaml.Unmarshal([]byte(str), &t)
 	c.Assert(err, IsNil)
-	c.Assert(t, Equals, time.Date(2015, 2, 24, 18, 19, 39, 123456789, t.Location()))
-	c.Assert(t.In(time.UTC), Equals, time.Date(2015, 2, 24, 21, 19, 39, 123456789, time.UTC))
+	c.Assert(t, Equals, time.Date(2015, 2, 24, 18, 19, 39, 123456789, t.(time.Time).Location()))
+	c.Assert(t.(time.Time).In(time.UTC), Equals, time.Date(2015, 2, 24, 21, 19, 39, 123456789, time.UTC))
 }
 
 func (s *S) TestDecoderSingleDocument(c *C) {
@@ -800,12 +873,12 @@ var decoderTests = []struct {
 }, {
 	"a: b",
 	[]interface{}{
-		map[interface{}]interface{}{"a": "b"},
+		map[string]interface{}{"a": "b"},
 	},
 }, {
 	"---\na: b\n...\n",
 	[]interface{}{
-		map[interface{}]interface{}{"a": "b"},
+		map[string]interface{}{"a": "b"},
 	},
 }, {
 	"---\n'hello'\n...\n---\ngoodbye\n...\n",
@@ -851,6 +924,13 @@ func (s *S) TestUnmarshalNaN(c *C) {
 	c.Assert(math.IsNaN(value["notanum"].(float64)), Equals, true)
 }
 
+func (s *S) TestUnmarshalDurationInt(c *C) {
+	// Don't accept plain ints as durations as it's unclear (issue #200).
+	var d time.Duration
+	err := yaml.Unmarshal([]byte("123"), &d)
+	c.Assert(err, ErrorMatches, "(?s).* line 1: cannot unmarshal !!int `123` into time.Duration")
+}
+
 var unmarshalErrorTests = []struct {
 	data, error string
 }{
@@ -860,11 +940,10 @@ var unmarshalErrorTests = []struct {
 	{"a:\n- b: *,", "yaml: line 2: did not find expected alphabetic or numeric character"},
 	{"a: *b\n", "yaml: unknown anchor 'b' referenced"},
 	{"a: &a\n  b: *a\n", "yaml: anchor 'a' value contains itself"},
-	{"a: &x null\n<<:\n- *x\nb: &x {}\n", `yaml: map merge requires map or sequence of maps as the value`}, // Issue #529.
 	{"value: -", "yaml: block sequence entries are not allowed in this context"},
 	{"a: !!binary ==", "yaml: !!binary value contains invalid base64 data"},
 	{"{[.]}", `yaml: invalid map key: \[\]interface \{\}\{"\."\}`},
-	{"{{.}}", `yaml: invalid map key: map\[interface\ \{\}\]interface \{\}\{".":interface \{\}\(nil\)\}`},
+	{"{{.}}", `yaml: invalid map key: map\[string]interface \{\}\{".":interface \{\}\(nil\)\}`},
 	{"b: *a\na: &a {c: 1}", `yaml: unknown anchor 'a' referenced`},
 	{"%TAG !%79! tag:yaml.org,2002:\n---\nv: !%79!int '1'", "yaml: did not find expected whitespace"},
 	{"a:\n  1:\nb\n  2:", ".*could not find expected ':'"},
@@ -888,13 +967,6 @@ func (s *S) TestUnmarshalErrors(c *C) {
 		var value interface{}
 		err := yaml.Unmarshal([]byte(item.data), &value)
 		c.Assert(err, ErrorMatches, item.error, Commentf("Partial unmarshal: %#v", value))
-
-		if strings.Contains(item.data, ":") {
-			// Repeat test with typed value.
-			var value map[string]interface{}
-			err := yaml.Unmarshal([]byte(item.data), &value)
-			c.Assert(err, ErrorMatches, item.error, Commentf("Partial unmarshal: %#v", value))
-		}
 	}
 }
 
@@ -910,7 +982,7 @@ var unmarshalerTests = []struct {
 	data, tag string
 	value     interface{}
 }{
-	{"_: {hi: there}", "!!map", map[interface{}]interface{}{"hi": "there"}},
+	{"_: {hi: there}", "!!map", map[string]interface{}{"hi": "there"}},
 	{"_: [1,A]", "!!seq", []interface{}{1, "A"}},
 	{"_: 10", "!!int", 10},
 	{"_: null", "!!null", nil},
@@ -926,8 +998,8 @@ type unmarshalerType struct {
 	value interface{}
 }
 
-func (o *unmarshalerType) UnmarshalYAML(unmarshal func(v interface{}) error) error {
-	if err := unmarshal(&o.value); err != nil {
+func (o *unmarshalerType) UnmarshalYAML(value *yaml.Node) error {
+	if err := value.Decode(&o.value); err != nil {
 		return err
 	}
 	if i, ok := o.value.(int); ok {
@@ -946,9 +1018,53 @@ type unmarshalerValue struct {
 	Field unmarshalerType "_"
 }
 
+type unmarshalerInlined struct {
+	Field   *unmarshalerType "_"
+	Inlined unmarshalerType  `yaml:",inline"`
+}
+
+type unmarshalerInlinedTwice struct {
+	InlinedTwice unmarshalerInlined `yaml:",inline"`
+}
+
+type obsoleteUnmarshalerType struct {
+	value interface{}
+}
+
+func (o *obsoleteUnmarshalerType) UnmarshalYAML(unmarshal func(v interface{}) error) error {
+	if err := unmarshal(&o.value); err != nil {
+		return err
+	}
+	if i, ok := o.value.(int); ok {
+		if result, ok := unmarshalerResult[i]; ok {
+			return result
+		}
+	}
+	return nil
+}
+
+type obsoleteUnmarshalerPointer struct {
+	Field *obsoleteUnmarshalerType "_"
+}
+
+type obsoleteUnmarshalerValue struct {
+	Field obsoleteUnmarshalerType "_"
+}
+
 func (s *S) TestUnmarshalerPointerField(c *C) {
 	for _, item := range unmarshalerTests {
 		obj := &unmarshalerPointer{}
+		err := yaml.Unmarshal([]byte(item.data), obj)
+		c.Assert(err, IsNil)
+		if item.value == nil {
+			c.Assert(obj.Field, IsNil)
+		} else {
+			c.Assert(obj.Field, NotNil, Commentf("Pointer not initialized (%#v)", item.value))
+			c.Assert(obj.Field.value, DeepEquals, item.value)
+		}
+	}
+	for _, item := range unmarshalerTests {
+		obj := &obsoleteUnmarshalerPointer{}
 		err := yaml.Unmarshal([]byte(item.data), obj)
 		c.Assert(err, IsNil)
 		if item.value == nil {
@@ -962,7 +1078,7 @@ func (s *S) TestUnmarshalerPointerField(c *C) {
 
 func (s *S) TestUnmarshalerValueField(c *C) {
 	for _, item := range unmarshalerTests {
-		obj := &unmarshalerValue{}
+		obj := &obsoleteUnmarshalerValue{}
 		err := yaml.Unmarshal([]byte(item.data), obj)
 		c.Assert(err, IsNil)
 		c.Assert(obj.Field, NotNil, Commentf("Pointer not initialized (%#v)", item.value))
@@ -970,11 +1086,25 @@ func (s *S) TestUnmarshalerValueField(c *C) {
 	}
 }
 
+func (s *S) TestUnmarshalerInlinedField(c *C) {
+	obj := &unmarshalerInlined{}
+	err := yaml.Unmarshal([]byte("_: a\ninlined: b\n"), obj)
+	c.Assert(err, IsNil)
+	c.Assert(obj.Field, DeepEquals, &unmarshalerType{"a"})
+	c.Assert(obj.Inlined, DeepEquals, unmarshalerType{map[string]interface{}{"_": "a", "inlined": "b"}})
+
+	twc := &unmarshalerInlinedTwice{}
+	err = yaml.Unmarshal([]byte("_: a\ninlined: b\n"), twc)
+	c.Assert(err, IsNil)
+	c.Assert(twc.InlinedTwice.Field, DeepEquals, &unmarshalerType{"a"})
+	c.Assert(twc.InlinedTwice.Inlined, DeepEquals, unmarshalerType{map[string]interface{}{"_": "a", "inlined": "b"}})
+}
+
 func (s *S) TestUnmarshalerWholeDocument(c *C) {
-	obj := &unmarshalerType{}
+	obj := &obsoleteUnmarshalerType{}
 	err := yaml.Unmarshal([]byte(unmarshalerTests[0].data), obj)
 	c.Assert(err, IsNil)
-	value, ok := obj.value.(map[interface{}]interface{})
+	value, ok := obj.value.(map[string]interface{})
 	c.Assert(ok, Equals, true, Commentf("value: %#v", obj.value))
 	c.Assert(value["_"], DeepEquals, unmarshalerTests[0].value)
 }
@@ -1010,25 +1140,56 @@ func (s *S) TestUnmarshalerTypeError(c *C) {
 	c.Assert(v.M["ghi"].value, Equals, 3)
 }
 
+func (s *S) TestObsoleteUnmarshalerTypeError(c *C) {
+	unmarshalerResult[2] = &yaml.TypeError{[]string{"foo"}}
+	unmarshalerResult[4] = &yaml.TypeError{[]string{"bar"}}
+	defer func() {
+		delete(unmarshalerResult, 2)
+		delete(unmarshalerResult, 4)
+	}()
+
+	type T struct {
+		Before int
+		After  int
+		M      map[string]*obsoleteUnmarshalerType
+	}
+	var v T
+	data := `{before: A, m: {abc: 1, def: 2, ghi: 3, jkl: 4}, after: B}`
+	err := yaml.Unmarshal([]byte(data), &v)
+	c.Assert(err, ErrorMatches, ""+
+		"yaml: unmarshal errors:\n"+
+		"  line 1: cannot unmarshal !!str `A` into int\n"+
+		"  foo\n"+
+		"  bar\n"+
+		"  line 1: cannot unmarshal !!str `B` into int")
+	c.Assert(v.M["abc"], NotNil)
+	c.Assert(v.M["def"], IsNil)
+	c.Assert(v.M["ghi"], NotNil)
+	c.Assert(v.M["jkl"], IsNil)
+
+	c.Assert(v.M["abc"].value, Equals, 1)
+	c.Assert(v.M["ghi"].value, Equals, 3)
+}
+
 type proxyTypeError struct{}
 
-func (v *proxyTypeError) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (v *proxyTypeError) UnmarshalYAML(node *yaml.Node) error {
 	var s string
 	var a int32
 	var b int64
-	if err := unmarshal(&s); err != nil {
+	if err := node.Decode(&s); err != nil {
 		panic(err)
 	}
 	if s == "a" {
-		if err := unmarshal(&b); err == nil {
+		if err := node.Decode(&b); err == nil {
 			panic("should have failed")
 		}
-		return unmarshal(&a)
+		return node.Decode(&a)
 	}
-	if err := unmarshal(&a); err == nil {
+	if err := node.Decode(&a); err == nil {
 		panic("should have failed")
 	}
-	return unmarshal(&b)
+	return node.Decode(&b)
 }
 
 func (s *S) TestUnmarshalerTypeErrorProxying(c *C) {
@@ -1048,11 +1209,49 @@ func (s *S) TestUnmarshalerTypeErrorProxying(c *C) {
 		"  line 1: cannot unmarshal !!str `B` into int")
 }
 
-type failingUnmarshaler struct{}
+type obsoleteProxyTypeError struct{}
+
+func (v *obsoleteProxyTypeError) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	var a int32
+	var b int64
+	if err := unmarshal(&s); err != nil {
+		panic(err)
+	}
+	if s == "a" {
+		if err := unmarshal(&b); err == nil {
+			panic("should have failed")
+		}
+		return unmarshal(&a)
+	}
+	if err := unmarshal(&a); err == nil {
+		panic("should have failed")
+	}
+	return unmarshal(&b)
+}
+
+func (s *S) TestObsoleteUnmarshalerTypeErrorProxying(c *C) {
+	type T struct {
+		Before int
+		After  int
+		M      map[string]*obsoleteProxyTypeError
+	}
+	var v T
+	data := `{before: A, m: {abc: a, def: b}, after: B}`
+	err := yaml.Unmarshal([]byte(data), &v)
+	c.Assert(err, ErrorMatches, ""+
+		"yaml: unmarshal errors:\n"+
+		"  line 1: cannot unmarshal !!str `A` into int\n"+
+		"  line 1: cannot unmarshal !!str `a` into int32\n"+
+		"  line 1: cannot unmarshal !!str `b` into int64\n"+
+		"  line 1: cannot unmarshal !!str `B` into int")
+}
 
 var failingErr = errors.New("failingErr")
 
-func (ft *failingUnmarshaler) UnmarshalYAML(unmarshal func(interface{}) error) error {
+type failingUnmarshaler struct{}
+
+func (ft *failingUnmarshaler) UnmarshalYAML(node *yaml.Node) error {
 	return failingErr
 }
 
@@ -1061,18 +1260,29 @@ func (s *S) TestUnmarshalerError(c *C) {
 	c.Assert(err, Equals, failingErr)
 }
 
+type obsoleteFailingUnmarshaler struct{}
+
+func (ft *obsoleteFailingUnmarshaler) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	return failingErr
+}
+
+func (s *S) TestObsoleteUnmarshalerError(c *C) {
+	err := yaml.Unmarshal([]byte("a: b"), &obsoleteFailingUnmarshaler{})
+	c.Assert(err, Equals, failingErr)
+}
+
 type sliceUnmarshaler []int
 
-func (su *sliceUnmarshaler) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (su *sliceUnmarshaler) UnmarshalYAML(node *yaml.Node) error {
 	var slice []int
-	err := unmarshal(&slice)
+	err := node.Decode(&slice)
 	if err == nil {
 		*su = slice
 		return nil
 	}
 
 	var intVal int
-	err = unmarshal(&intVal)
+	err = node.Decode(&intVal)
 	if err == nil {
 		*su = []int{intVal}
 		return nil
@@ -1090,6 +1300,37 @@ func (s *S) TestUnmarshalerRetry(c *C) {
 	err = yaml.Unmarshal([]byte("1"), &su)
 	c.Assert(err, IsNil)
 	c.Assert(su, DeepEquals, sliceUnmarshaler([]int{1}))
+}
+
+type obsoleteSliceUnmarshaler []int
+
+func (su *obsoleteSliceUnmarshaler) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var slice []int
+	err := unmarshal(&slice)
+	if err == nil {
+		*su = slice
+		return nil
+	}
+
+	var intVal int
+	err = unmarshal(&intVal)
+	if err == nil {
+		*su = []int{intVal}
+		return nil
+	}
+
+	return err
+}
+
+func (s *S) TestObsoleteUnmarshalerRetry(c *C) {
+	var su obsoleteSliceUnmarshaler
+	err := yaml.Unmarshal([]byte("[1, 2, 3]"), &su)
+	c.Assert(err, IsNil)
+	c.Assert(su, DeepEquals, obsoleteSliceUnmarshaler([]int{1, 2, 3}))
+
+	err = yaml.Unmarshal([]byte("1"), &su)
+	c.Assert(err, IsNil)
+	c.Assert(su, DeepEquals, obsoleteSliceUnmarshaler([]int{1}))
 }
 
 // From http://yaml.org/type/merge.html
@@ -1156,11 +1397,20 @@ func (s *S) TestMerge(c *C) {
 		"label": "center/big",
 	}
 
+	wantStringMap := make(map[string]interface{})
+	for k, v := range want {
+		wantStringMap[fmt.Sprintf("%v", k)] = v
+	}
+
 	var m map[interface{}]interface{}
 	err := yaml.Unmarshal([]byte(mergeTests), &m)
 	c.Assert(err, IsNil)
 	for name, test := range m {
 		if name == "anchors" {
+			continue
+		}
+		if name == "plain" {
+			c.Assert(test, DeepEquals, wantStringMap, Commentf("test %q failed", name))
 			continue
 		}
 		c.Assert(test, DeepEquals, want, Commentf("test %q failed", name))
@@ -1197,16 +1447,38 @@ var unmarshalNullTests = []func() interface{}{
 
 func (s *S) TestUnmarshalNull(c *C) {
 	for _, test := range unmarshalNullTests {
-		item := test()
-		zero := reflect.Zero(reflect.TypeOf(item).Elem()).Interface()
-		err := yaml.Unmarshal([]byte("null"), item)
+		pristine := test()
+		decoded := test()
+		zero := reflect.Zero(reflect.TypeOf(decoded).Elem()).Interface()
+		err := yaml.Unmarshal([]byte("null"), decoded)
 		c.Assert(err, IsNil)
-		if reflect.TypeOf(item).Kind() == reflect.Map {
-			c.Assert(reflect.ValueOf(item).Interface(), DeepEquals, reflect.MakeMap(reflect.TypeOf(item)).Interface())
-		} else {
-			c.Assert(reflect.ValueOf(item).Elem().Interface(), DeepEquals, zero)
+		switch pristine.(type) {
+		case *interface{}, **string, **int, *map[string]int:
+			c.Assert(reflect.ValueOf(decoded).Elem().Interface(), DeepEquals, zero)
+		default:
+			c.Assert(reflect.ValueOf(decoded).Interface(), DeepEquals, pristine)
 		}
 	}
+}
+
+func (s *S) TestUnmarshalPreservesData(c *C) {
+	var v struct {
+		A, B int
+		C int `yaml:"-"`
+	}
+	v.A = 42
+	v.C = 88
+	err := yaml.Unmarshal([]byte("---"), &v)
+	c.Assert(err, IsNil)
+	c.Assert(v.A, Equals, 42)
+	c.Assert(v.B, Equals, 0)
+	c.Assert(v.C, Equals, 88)
+
+	err = yaml.Unmarshal([]byte("b: 21\nc: 99"), &v)
+	c.Assert(err, IsNil)
+	c.Assert(v.A, Equals, 42)
+	c.Assert(v.B, Equals, 21)
+	c.Assert(v.C, Equals, 88)
 }
 
 func (s *S) TestUnmarshalSliceOnPreset(c *C) {
@@ -1217,19 +1489,24 @@ func (s *S) TestUnmarshalSliceOnPreset(c *C) {
 }
 
 var unmarshalStrictTests = []struct {
-	data  string
-	value interface{}
-	error string
+	known  bool
+	unique bool
+	data   string
+	value  interface{}
+	error  string
 }{{
+	known: true,
 	data:  "a: 1\nc: 2\n",
 	value: struct{ A, B int }{A: 1},
 	error: `yaml: unmarshal errors:\n  line 2: field c not found in type struct { A int; B int }`,
 }, {
-	data:  "a: 1\nb: 2\na: 3\n",
-	value: struct{ A, B int }{A: 3, B: 2},
-	error: `yaml: unmarshal errors:\n  line 3: field a already set in type struct { A int; B int }`,
+	unique: true,
+	data:   "a: 1\nb: 2\na: 3\n",
+	value:  struct{ A, B int }{A: 3, B: 2},
+	error:  `yaml: unmarshal errors:\n  line 3: mapping key "a" already defined at line 1`,
 }, {
-	data: "c: 3\na: 1\nb: 2\nc: 4\n",
+	unique: true,
+	data:   "c: 3\na: 1\nb: 2\nc: 4\n",
 	value: struct {
 		A       int
 		inlineB `yaml:",inline"`
@@ -1242,9 +1519,10 @@ var unmarshalStrictTests = []struct {
 			},
 		},
 	},
-	error: `yaml: unmarshal errors:\n  line 4: field c already set in type struct { A int; yaml_test.inlineB "yaml:\\",inline\\"" }`,
+	error: `yaml: unmarshal errors:\n  line 4: mapping key "c" already defined at line 1`,
 }, {
-	data: "c: 0\na: 1\nb: 2\nc: 1\n",
+	unique: true,
+	data:   "c: 0\na: 1\nb: 2\nc: 1\n",
 	value: struct {
 		A       int
 		inlineB `yaml:",inline"`
@@ -1257,9 +1535,10 @@ var unmarshalStrictTests = []struct {
 			},
 		},
 	},
-	error: `yaml: unmarshal errors:\n  line 4: field c already set in type struct { A int; yaml_test.inlineB "yaml:\\",inline\\"" }`,
+	error: `yaml: unmarshal errors:\n  line 4: mapping key "c" already defined at line 1`,
 }, {
-	data: "c: 1\na: 1\nb: 2\nc: 3\n",
+	unique: true,
+	data:   "c: 1\na: 1\nb: 2\nc: 3\n",
 	value: struct {
 		A int
 		M map[string]interface{} `yaml:",inline"`
@@ -1270,31 +1549,36 @@ var unmarshalStrictTests = []struct {
 			"c": 3,
 		},
 	},
-	error: `yaml: unmarshal errors:\n  line 4: key "c" already set in map`,
+	error: `yaml: unmarshal errors:\n  line 4: mapping key "c" already defined at line 1`,
 }, {
-	data: "a: 1\n9: 2\nnull: 3\n9: 4",
+	unique: true,
+	data:   "a: 1\n9: 2\nnull: 3\n9: 4",
 	value: map[interface{}]interface{}{
 		"a": 1,
 		nil: 3,
 		9:   4,
 	},
-	error: `yaml: unmarshal errors:\n  line 4: key 9 already set in map`,
+	error: `yaml: unmarshal errors:\n  line 4: mapping key "9" already defined at line 2`,
 }}
 
-func (s *S) TestUnmarshalStrict(c *C) {
+func (s *S) TestUnmarshalKnownFields(c *C) {
 	for i, item := range unmarshalStrictTests {
 		c.Logf("test %d: %q", i, item.data)
 		// First test that normal Unmarshal unmarshals to the expected value.
+		if !item.unique {
+			t := reflect.ValueOf(item.value).Type()
+			value := reflect.New(t)
+			err := yaml.Unmarshal([]byte(item.data), value.Interface())
+			c.Assert(err, Equals, nil)
+			c.Assert(value.Elem().Interface(), DeepEquals, item.value)
+		}
+
+		// Then test that it fails on the same thing with KnownFields on.
 		t := reflect.ValueOf(item.value).Type()
 		value := reflect.New(t)
-		err := yaml.Unmarshal([]byte(item.data), value.Interface())
-		c.Assert(err, Equals, nil)
-		c.Assert(value.Elem().Interface(), DeepEquals, item.value)
-
-		// Then test that UnmarshalStrict fails on the same thing.
-		t = reflect.ValueOf(item.value).Type()
-		value = reflect.New(t)
-		err = yaml.UnmarshalStrict([]byte(item.data), value.Interface())
+		dec := yaml.NewDecoder(bytes.NewBuffer([]byte(item.data)))
+		dec.KnownFields(item.known)
+		err := dec.Decode(value.Interface())
 		c.Assert(err, ErrorMatches, item.error)
 	}
 }
