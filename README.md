@@ -28,7 +28,9 @@ To run the code, we need to start the local webserver by running:
     $ ./main/main
 ```
 
-To test the `MapHandler`, point browser to `127.0.0.1:8080/urlshort-godoc`. The browser should redirect you to `https://godoc.org/github.com/gophercises/urlshort` . In order to test the `YAMLHandler`, point browser to `127.0.0.1:8080/urlshort`. The browser should redirect you to `https://github.com/damilarelana/goUrlShortener`. In order to test the `JSONHandler`, you need to re-run the application so that it uses the provided JSON file i.e. 
+To test the `MapHandler`, point browser to `127.0.0.1:8080/urlshort-godoc`. The browser should redirect you to `https://godoc.org/github.com/gophercises/urlshort` . In order to test the `YAMLHandler`, point browser to `127.0.0.1:8080/urlshort`. The browser should redirect you to `https://github.com/damilarelana/goUrlShortener`. 
+
+To test the `JSONHandler`, you need to re-run the application with the JSON file flag i.e.
 ```bash
     $ ./main/main -json="pathsData.json"
 ```
@@ -39,5 +41,5 @@ To test the `MapHandler`, point browser to `127.0.0.1:8080/urlshort-godoc`. The 
 ### To Do
 
 + [x] YAML implementation - accepts a YAML file as a flag, loads the YAML content from file instead of from a string
-+ [ ] JSON implementation - accepts a JSON file as a flag, loads the JSON content from file instead of from a string
++ [x] JSON implementation - accepts a JSON file as a flag, loads the JSON content from file instead of from a string
 + [ ] SQL implementation  - reads the required content from a database instead of from a file
