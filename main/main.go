@@ -9,9 +9,22 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"database/sql"
 
 	"github.com/damilarelana/goUrlShortener"
 	"github.com/pkg/errors"
+	_ "github.com/lib/pq"
+	"github.com/jmoiron/sqlx"
+
+)
+
+// define the database connection parameters
+const (
+	host     = "localhost"
+	port     = 5432
+	user     = "postgres"
+	password = "rPh0t0nics!"
+	dbname   = "go_test_db"
 )
 
 // defines the error message handler
@@ -131,6 +144,54 @@ func defaultMux() *http.ServeMux {
 	mux.HandleFunc("/", urlShortenerHomePage)
 	return mux
 }
+
+	// postgresInstanceInfo looks like "user:password@tcp(localhost:port)/dbname" when using "mysql"
+	// postgresInstanceInfo looks like "host=%s port=%d user=%s password=%s dbname=% sslmode=disable" when using "postgres"
+	postgresConnStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+
+	// connect to the database
+	db, err := sql.Open("postgres", postgresConnStr) // this opens a connection and adds to the pool
+	if err != nil {
+		panic(err.Error())
+	}
+	defer db.Close()
+
+	// connect to the database
+	err = db.Ping() // this validates that the opened connection "db" is actually working
+	if err != nil {
+		panic(err.Error())
+	}
+	fmt.Println("Successfully connected to the Postgres database")
+
+	// query for specific data from database for a specific id
+	sqlStatement = `select id, email from users where id = $1` // statement to delete data with
+	var email string
+	rowResult := db.QueryRow(sqlStatement, 4)       // execute the sql,by passing the required variable
+	switch err = rowResult.Scan(&id, &email); err { // review differenct cases
+	case sql.ErrNoRows: // sql.ErrNoRows is what Scan() returns when there is no row data to pass
+		fmt.Println("No rows were returned")
+	case nil: // this handles where there was data returned
+		fmt.Println(id, email)
+	// default case
+	default:
+		panic(err.Error()) // just throws a general error
+	}
+
+	// query for all data from database for a specific id
+	sqlStatement = `select * from users where id = $1`
+	var user User
+	rowResult = db.QueryRow(sqlStatement, 3) // execute the sql,by passing the required variable
+	err = rowResult.Scan(&user.ID, &user.Age, &user.FirstName, &user.LastName, &user.Email)
+	switch err { // review differenct cases
+	case sql.ErrNoRows: // sql.ErrNoRows is what Scan() returns when there is no row data to pass
+		fmt.Println("No rows were returned")
+	case nil: // this handles where there was data returned
+		fmt.Println(user)
+	// default case
+	default:
+		panic(err.Error())
+	}
+	
 
 // define main function that:
 //   * uses defaultMux()
