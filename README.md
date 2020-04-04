@@ -12,13 +12,17 @@ The code leverages the following packages:
 
 * [yaml](gopkg.in/yaml.v3)
 * [json](https://golang.org/pkg/encoding/json/)
-* `flags` package
-* `net` package
-* `fmt` package
-* `io` package
-* `log` package
-* `error` package
-* `reflect` package
+* [sql](https://golang.org/pkg/database/sql/)
+* [postgres driver](https://github.com/lib/pq)
+* `flags`
+* `net`
+* `fmt`
+* `io`
+* `log`
+* `error`
+* `reflect`
+* `errors`
+* `os`
 
 
 ***

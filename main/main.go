@@ -23,17 +23,17 @@ var (
 	port     = 5432
 	user     = "postgres"
 	password = "brainiac"
-	dbname   = "go_test_db"
+	database = "go_test_db"
 )
 
-// DatabaseConnectionParameter types
-type DatabaseConnectionParameter struct {
-	Host     string
-	Port     int
-	UserName string
-	Password string
-	DBName   string
-}
+// // DatabaseConnectionParameter types
+// type DatabaseConnectionParameter struct {
+// 	Host     string
+// 	Port     int
+// 	UserName string
+// 	Password string
+// 	DBName   string
+// }
 
 // defines the error message handler
 func errMsgHandler(msg string, err error) {
@@ -60,19 +60,21 @@ func fileReader(f *string) []byte {
 }
 
 // sqlFlagReader()
-//  * takes the pointer to the sql database path
+//  * takes the pointer to the sql database path provided by the user in the format:
+//			- `<protocol>://<host>:<port>/<database>?<username>&<password>`
 //	* dereferences the pointer to get the value i.e. *f
 //	* uses regex to extract the following:
+//			- protocol
 //			- host
 //			- port
+//			- database i.e. dbname
 //			- username
 //			- password
-//			- dbname
 //  * returns a `string` of database connection parameters required by sql.Open() based on the format below
 // 	 		- "user:password@tcp(localhost:port)/dbname" when using "mysql"
 // 			- "host=%s port=%d user=%s password=%s dbname=% sslmode=disable" when using "postgres"
 func sqlFlagReader(sqlDatabasePath *string) (dbConnParams string) {
-	dbConnParams = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+	dbConnParams = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, database)
 	return dbConnParams
 }
 
