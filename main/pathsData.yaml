@@ -1,7 +1,7 @@
 # Paths and Urls
 
-- path: /urlshort
+- path: /urlshort-yaml
   url: https://github.com/damilarelana/goUrlShortener
   
-- path: /urlshort-final
+- path: /urlshort-final-yaml
   url: https://github.com/damilarelana/goUrlShortener/tree/master/main

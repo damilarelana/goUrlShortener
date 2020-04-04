@@ -81,7 +81,7 @@ func sqlFlagReader(sqlDatabasePath *string) (dbConnParams string) {
 	u, err := url.Parse(*sqlDatabasePath)
 	errMsgHandler(fmt.Sprintf("Failed to parse the sql database path"), err)
 
-	fmt.Println(fmt.Sprintf("User provided sql database path is: %s\n", u.String())) // echo back the user provided sql database path
+	fmt.Println(fmt.Sprintf("User's sql database path is: %s", u.String())) // echo back the user provided sql database path
 
 	host, portString, err := net.SplitHostPort(u.Host) // extract the url host and post by splitting it from the combined `Host`
 	errMsgHandler(fmt.Sprintf("Failed to extract host and port for sql database"), err)
@@ -92,8 +92,8 @@ func sqlFlagReader(sqlDatabasePath *string) (dbConnParams string) {
 	queryString := u.RawQuery                          // get all the raw queries delimited by &
 	queryStringMap, err := url.ParseQuery(queryString) // convert queryString to a map datatype
 	errMsgHandler(fmt.Sprintf("Failed to parse the dbUser/dbUserPassword queryString"), err)
-	dbUser := queryStringMap["dbUser"]                 // extract database user from map
-	dbUserPassword := queryStringMap["dbUserPassword"] // extract database user password from map
+	dbUser := queryStringMap["dbUser"][0]                 // extract database user from map i.e. first element of the slice for key `dbUser`
+	dbUserPassword := queryStringMap["dbUserPassword"][0] // extract database user password from map i.e. first element of the slice for key `dbUserPassword`
 
 	dbConnParams = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, dbUser, dbUserPassword, database)
 	return dbConnParams
@@ -107,6 +107,7 @@ func sqlFlagReader(sqlDatabasePath *string) (dbConnParams string) {
 func dbQuery(sqlDatabasePath *string) []gUS.PathURL {
 	dbConnParams := sqlFlagReader(sqlDatabasePath)
 	db := dbConnect(dbConnParams) // initiate connection to the database
+	defer db.Close()              //
 
 	// query for multiple records from database
 	var pathUrls gUS.PathURL                    // declare pathUrls struct, meant to read database data into
@@ -134,10 +135,10 @@ func dbQuery(sqlDatabasePath *string) []gUS.PathURL {
 // * adds the connection to a poll
 // * pings the opened connection to ensure that it is still working
 // * returns a db connection
+// * not that `defer db.close()` is not called here since it makes more sense to do that where dbConnect() is called
 func dbConnect(dbConnParams string) *sql.DB {
 	db, err := sql.Open("postgres", dbConnParams) // this opens a connection and adds to the pool
 	errMsgHandler(fmt.Sprintf("Failed to connect to the database"), err)
-	defer db.Close()
 
 	// connect to the database
 	err = db.Ping() // this validates that the opened connection "db" is actually working
@@ -191,18 +192,18 @@ func selectFlagHandler(mapHandler http.HandlerFunc) http.HandlerFunc {
 		errMsgHandler(fmt.Sprintf("Cannot use multiple flags at once. Please choose only yaml or json or sql \n"), nil)
 	}
 
-	if flag.NFlag() != 0 && !reflect.DeepEqual(jsonFilename, "") { // if json filename is used THEN yaml/sql flag would be empty string
+	if flag.NFlag() != 0 && !reflect.DeepEqual(*jsonFilename, "") { // if json filename is used THEN yaml/sql flag would be empty string
 		jsonHandler := jsonFlagHandler(jsonFilename, mapHandler)
 		fmt.Printf("Now using the JSON flag with the file: %s\n", *jsonFilename)
 		return jsonHandler
 	}
 
-	if flag.NFlag() != 0 && !reflect.DeepEqual(yamlFilename, "") { // if yaml filename is used THEN json/sql flags would be empty string
+	if flag.NFlag() != 0 && !reflect.DeepEqual(*yamlFilename, "") { // if yaml filename is used THEN json/sql flags would be empty string
 		yamlHandler := yamlFlagHandler(yamlFilename, mapHandler)
 		return yamlHandler
 	}
 
-	if flag.NFlag() != 0 && !reflect.DeepEqual(sqlDatabasePath, "") { // if sql flag is used THEN yaml/json flags would be empty string
+	if flag.NFlag() != 0 && !reflect.DeepEqual(*sqlDatabasePath, "") { // if sql flag is used THEN yaml/json flags would be empty string
 		sqlHandler := sqlFlagHandler(sqlDatabasePath, mapHandler)
 		return sqlHandler
 	}
@@ -261,6 +262,7 @@ func main() {
 		"/yaml-godoc":     "https://godoc.org/gopkg.in/yaml.v2",
 	}
 	mapHandler := gUS.MapHandler(pathsToUrls, mux)
+	fmt.Println("\n==== ==== ==== ====")
 	fmt.Println("Starting the server on :8080")
 	log.Fatal(errors.Wrap(http.ListenAndServe(":8080", selectFlagHandler(mapHandler)), "Failed to start WebServer"))
 }
