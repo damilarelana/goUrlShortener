@@ -68,8 +68,24 @@ func JSONHandler(jsonBytes []byte, fallback http.Handler) (http.HandlerFunc, err
 	return MapHandler(pathsToUrls, fallback), nil
 }
 
-// pathURL declares the type structure we'll parse the YAML or JSON into
-type pathURL struct {
+// SQLHandler  return an http.HandlerFunc (which also implements http.Handler)
+//  * parse the sql data
+//  * convert parsed SQL data into a map
+//  * then re-use the MapHandler
+
+// SQLHandler parses the sql file [in byte form]
+func SQLHandler(pathUrls []PathURL, fallback http.Handler) (http.HandlerFunc, error) {
+	// convert pathUrls into a map
+	pathsToUrls := buildPathsMap(pathUrls)
+
+	// re-use the MapHandler
+	// * now return the newly padded pathsToUrls
+	// * while returning it in a format that makes it look like you were calling MapHandler in the first place
+	return MapHandler(pathsToUrls, fallback), nil
+}
+
+// PathURL declares the type structure we'll parse the YAML or JSON or SQL data into
+type PathURL struct {
 	Path string `format:"path"`
 	URL  string `format:"url"`
 }
@@ -79,7 +95,7 @@ type pathURL struct {
 // * fill up the empty map one at a time
 // * using the data already parsed into `pathUrls`
 // * i.e. for each `Path` there is a corresponding `URL`
-func buildPathsMap(pTUrl []pathURL) map[string]string {
+func buildPathsMap(pTUrl []PathURL) map[string]string {
 	pTUrls := make(map[string]string)
 	for _, pu := range pTUrl {
 		pTUrls[pu.Path] = pu.URL
@@ -89,7 +105,7 @@ func buildPathsMap(pTUrl []pathURL) map[string]string {
 
 // parseYAML uses the `yaml` package to parse the YAML bytes into the Type struct pathURL
 //  * yaml.Unmarshal reads `all` the content into memory at once
-func parseYAML(yB []byte) (pathUrls []pathURL, err error) {
+func parseYAML(yB []byte) (pathUrls []PathURL, err error) {
 	err = yaml.Unmarshal(yB, &pathUrls)
 	if err != nil {
 		return nil, err
@@ -99,7 +115,7 @@ func parseYAML(yB []byte) (pathUrls []pathURL, err error) {
 
 // parseJSON uses the `json` package to parse the JSON bytes into the Type struct pathURL
 //  * json.Unmarshal reads `all` the content into memory at once
-func parseJSON(jB []byte) (pathUrls []pathURL, err error) {
+func parseJSON(jB []byte) (pathUrls []PathURL, err error) {
 	err = json.Unmarshal(jB, &pathUrls)
 	if err != nil {
 		return nil, err

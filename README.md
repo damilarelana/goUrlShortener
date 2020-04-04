@@ -36,6 +36,10 @@ To test the `JSONHandler`, you need to re-run the application with the JSON file
     $ ./main/main -json="pathsData.json"
 ```
 
+To test `SQLHandler`, you supply the sql database path in the format `<protocol>://<host>:<port>/<database>?<username>&<password>`.
+```bash
+    $ ./main/main -sql="http//127.0.0.1:5432/go_test_db?<username>&<password>"
+```
 
 ***
 
