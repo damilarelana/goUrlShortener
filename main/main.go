@@ -17,6 +17,7 @@ import (
 )
 
 // initialize the database connection parameters
+// * these are used default values for testing purposes
 var (
 	host     = "localhost"
 	port     = 5432
@@ -70,9 +71,9 @@ func fileReader(f *string) []byte {
 //  * returns a `string` of database connection parameters required by sql.Open() based on the format below
 // 	 		- "user:password@tcp(localhost:port)/dbname" when using "mysql"
 // 			- "host=%s port=%d user=%s password=%s dbname=% sslmode=disable" when using "postgres"
-func sqlFlagReader(sqlDatabasePath *string) (postgresConnStr string) {
-	postgresConnStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
-	return postgresConnStr
+func sqlFlagReader(sqlDatabasePath *string) (dbConnParams string) {
+	dbConnParams = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+	return dbConnParams
 }
 
 // dbQuery()
