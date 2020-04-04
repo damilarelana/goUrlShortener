@@ -15,7 +15,8 @@ The code leverages the following packages:
 * [sql](https://golang.org/pkg/database/sql/)
 * [postgres driver](https://github.com/lib/pq)
 * `flags`
-* `net`
+* `net/http`
+* `net/url`
 * `fmt`
 * `io`
 * `log`
@@ -39,13 +40,12 @@ To test the `JSONHandler`, you need to re-run the application with the JSON file
 ```bash
     $ ./main/main -json="pathsData.json"
 ```
-This uses the provided json file (`pathsData.json`). Feel free to change this by providing the full path to the user's custom json file.
+This uses the default json file (`pathsData.json`). You can change this file, by providing (your custom json file's full path) to the the `-json` flag i.e. `-json="<pathToJSONFile>"`.
 
-To test `SQLHandler`, you supply the sql database path in the format `<protocol>://<host>:<port>/<database>?<username>&<password>`.
+To test `SQLHandler`, you supply the sql database path in the format `<protocol>://<host>:<port>/<database>?dbUser=<dbUserValue>&dbUserPassword=<dbUserPasswordValue>`.
 ```bash
-    $ ./main/main -sql="http//127.0.0.1:5432/go_test_db?<username>&<password>"
+    $ ./main/main -sql="http//127.0.0.1:5432/go_test_db?dbUser=go_test_db&dbUserPassword=brainiac"
 ```
-
 ***
 
 ### To Do

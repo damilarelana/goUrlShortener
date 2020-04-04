@@ -7,9 +7,13 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"reflect"
+	"strconv"
+	"strings"
 
 	gUS "github.com/damilarelana/goUrlShortener"
 	_ "github.com/lib/pq"
@@ -18,13 +22,13 @@ import (
 
 // initialize the database connection parameters
 // * these are used default values for testing purposes
-var (
-	host     = "localhost"
-	port     = 5432
-	user     = "postgres"
-	password = "brainiac"
-	database = "go_test_db"
-)
+// var (
+// 	host     = "localhost"
+// 	port     = 5432
+// 	user     = "postgres"
+// 	password = "brainiac"
+// 	database = "go_test_db"
+// )
 
 // // DatabaseConnectionParameter types
 // type DatabaseConnectionParameter struct {
@@ -61,20 +65,37 @@ func fileReader(f *string) []byte {
 
 // sqlFlagReader()
 //  * takes the pointer to the sql database path provided by the user in the format:
-//			- `<protocol>://<host>:<port>/<database>?<username>&<password>`
+//			- `<protocol>://<host>:<port>/<database>?dbUser=<dbUserValue>&dbUserPassword=<dbUserPasswordValue>`
 //	* dereferences the pointer to get the value i.e. *f
 //	* uses regex to extract the following:
 //			- protocol
 //			- host
 //			- port
 //			- database i.e. dbname
-//			- username
-//			- password
+//			- databaseUser
+//			- databaseUserPassword
 //  * returns a `string` of database connection parameters required by sql.Open() based on the format below
 // 	 		- "user:password@tcp(localhost:port)/dbname" when using "mysql"
 // 			- "host=%s port=%d user=%s password=%s dbname=% sslmode=disable" when using "postgres"
 func sqlFlagReader(sqlDatabasePath *string) (dbConnParams string) {
-	dbConnParams = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, database)
+	u, err := url.Parse(*sqlDatabasePath)
+	errMsgHandler(fmt.Sprintf("Failed to parse the sql database path"), err)
+
+	fmt.Println(fmt.Sprintf("User provided sql database path is: %s\n", u.String())) // echo back the user provided sql database path
+
+	host, portString, err := net.SplitHostPort(u.Host) // extract the url host and post by splitting it from the combined `Host`
+	errMsgHandler(fmt.Sprintf("Failed to extract host and port for sql database"), err)
+	port, _ := strconv.ParseUint(portString, 10, 32) // convert `port number` in string format, to integer format
+
+	database := strings.TrimLeft(u.Path, "/") // extract the database from the `Path` string, by removing the leading `/` character
+
+	queryString := u.RawQuery                          // get all the raw queries delimited by &
+	queryStringMap, err := url.ParseQuery(queryString) // convert queryString to a map datatype
+	errMsgHandler(fmt.Sprintf("Failed to parse the dbUser/dbUserPassword queryString"), err)
+	dbUser := queryStringMap["dbUser"]                 // extract database user from map
+	dbUserPassword := queryStringMap["dbUserPassword"] // extract database user password from map
+
+	dbConnParams = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, dbUser, dbUserPassword, database)
 	return dbConnParams
 }
 
