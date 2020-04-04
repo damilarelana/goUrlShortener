@@ -188,7 +188,7 @@ func selectFlagHandler(mapHandler http.HandlerFunc) http.HandlerFunc {
 
 	// defaults to yamlHandler when no flags are selected i.e. 'flag.NFlag() returns 0'
 	*yamlFilename = "pathsData.yaml"
-	fmt.Printf("No file flags was set (using either '-yaml' or '-json'). Defaulting to file: %s\n", *yamlFilename)
+	fmt.Printf("No file flags was set. Defaulting to file: %s\n", *yamlFilename)
 	yamlHandler := yamlFlagHandler(yamlFilename, mapHandler)
 	return yamlHandler
 }

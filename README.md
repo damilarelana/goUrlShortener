@@ -39,6 +39,7 @@ To test the `JSONHandler`, you need to re-run the application with the JSON file
 ```bash
     $ ./main/main -json="pathsData.json"
 ```
+This uses the provided json file (`pathsData.json`). Feel free to change this by providing the full path to the user's custom json file.
 
 To test `SQLHandler`, you supply the sql database path in the format `<protocol>://<host>:<port>/<database>?<username>&<password>`.
 ```bash
