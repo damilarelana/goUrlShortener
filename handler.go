@@ -68,9 +68,9 @@ func JSONHandler(jsonBytes []byte, fallback http.Handler) (http.HandlerFunc, err
 	return MapHandler(pathsToUrls, fallback), nil
 }
 
-// SQLHandler  return an http.HandlerFunc (which also implements http.Handler)
-//  * parse the sql data
-//  * convert parsed SQL data into a map
+// SQLHandler return an http.HandlerFunc (which also implements http.Handler)
+//  * accept the incoming slice of struct data from dbQuery() in main.go
+//  * convert parsed SQL data into a map using buildPathsMap()
 //  * then re-use the MapHandler
 
 // SQLHandler parses the sql file [in byte form]

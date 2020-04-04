@@ -153,7 +153,7 @@ func jsonFlagHandler(jsonFilename *string, mapHandler http.HandlerFunc) http.Han
 // sqlFlagHandler()
 func sqlFlagHandler(sqlDatabasePath *string, mapHandler http.HandlerFunc) http.HandlerFunc {
 	sqlHandler, err := gUS.SQLHandler(dbQuery(sqlDatabasePath), mapHandler)
-	errMsgHandler(fmt.Sprintf("Failed to read from the SQL database"), err)
+	errMsgHandler(fmt.Sprintf("Failed to read from database"), err)
 	return sqlHandler
 }
 
