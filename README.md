@@ -39,7 +39,7 @@ To test the `YAMLHandler`, re-run the application with the YAML file flag i.e.
 ```bash
     $ ./main/main -yaml="pathsData.yaml"
 ```
-This uses the default ymal file (`pathsData.ymal`). You can change this file, by providing (your custom yaml file's full path) to the the `-yaml` flag i.e. `-yaml="<pathToYAMLFile>"`. Test this scenario by pointing browser to `127.0.0.1:8080/urlshort-final-yaml`. The browser should redirect you to `https://github.com/damilarelana/goUrlShortener/tree/master/main`.
+This uses the default ymal file (`pathsData.ymal`). You can change this file, by providing (your custom yaml file's full path) to the the `-yaml` flag i.e. `-yaml="<pathToYAMLFile>"`. Test this scenario by pointing browser to `127.0.0.1:8080/urlshort-final-yaml`. The browser should redirect to `https://github.com/damilarelana/goUrlShortener/tree/master/main`.
 
 
 
@@ -47,14 +47,14 @@ To test the `JSONHandler`, re-run the application with the JSON file flag i.e.
 ```bash
     $ ./main/main -json="pathsData.json"
 ```
-This uses the default json file (`pathsData.json`). You can change this file, by providing (your custom json file's full path) to the the `-json` flag i.e. `-json="<pathToJSONFile>"`. Test this scenario by pointing browser to `127.0.0.1:8080/urlshort-final-json`. The browser should redirect you to `https://github.com/damilarelana/goUrlShortener/tree/master/main`.
+This uses the default json file (`pathsData.json`). You can change this file, by providing (your custom json file's full path) to the the `-json` flag i.e. `-json="<pathToJSONFile>"`. Test this scenario by pointing browser to `127.0.0.1:8080/urlshort-final-json`. The browser should redirect to `https://github.com/damilarelana/goUrlShortener/tree/master/main`.
 
 
 To test `SQLHandler`, you supply the sql database path in the format `<protocol>://<host>:<port>/<database>?dbUser=<dbUserValue>&dbUserPassword=<dbUserPasswordValue>`.
 ```bash
     $ ./main/main -sql="http//127.0.0.1:5432/go_test_db?dbUser=postgres&dbUserPassword=brainiac"
 ```
- Test this scenario by pointing browser to `127.0.0.1:8080/urlshort-final-sql`. The browser should redirect you to `https://github.com/damilarelana/goUrlShortener/tree/master/main`
+ This specific local PostgresSQL database instance was tested by pointing browser to `127.0.0.1:8080/urlshort-final-sql`. The browser redirects to `https://github.com/damilarelana/goUrlShortener/tree/master/main`
 ***
 
 ### To Do
