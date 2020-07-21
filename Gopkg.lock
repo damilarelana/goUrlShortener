@@ -2,26 +2,40 @@
 
 
 [[projects]]
+  digest = "1:b13346213a04419b68513cd5759cd591cb2b37987315c05cd3c3cc9650ea7dac"
   name = "github.com/lib/pq"
-  packages = [".","oid","scram"]
-  revision = "99274577be97ac9b1d95a2d61d566dc9b7cc6a54"
-  version = "v1.3.0"
+  packages = [
+    ".",
+    "oid",
+    "scram",
+  ]
+  pruneopts = "UT"
+  revision = "984a6aa1ca4673778a2965cb1dc74bd070dc8818"
+  version = "v1.7.1"
 
 [[projects]]
+  digest = "1:9e1d37b58d17113ec3cb5608ac0382313c5b59470b94ed97d0976e69c7022314"
   name = "github.com/pkg/errors"
   packages = ["."]
+  pruneopts = "UT"
   revision = "614d223910a179a466c1767a985424175c39b465"
   version = "v0.9.1"
 
 [[projects]]
   branch = "v3"
+  digest = "1:229cb0f6192914f518cc1241ede6d6f1f458b31debfa18bf3a5c9e4f7b01e24b"
   name = "gopkg.in/yaml.v3"
   packages = ["."]
-  revision = "9f266ea9e77c4c7aab4cf02650570e7c7b3031a5"
+  pruneopts = "UT"
+  revision = "eeeca48fe7764f320e4870d231902bf9c1be2c08"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "543f77f4209042680e2c6efe9252291e513acdb7ee37ad725413b1b70497af69"
+  input-imports = [
+    "github.com/lib/pq",
+    "github.com/pkg/errors",
+    "gopkg.in/yaml.v3",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
